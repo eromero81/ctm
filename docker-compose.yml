@@ -1,0 +1,48 @@
+version: "3.7"
+services:
+  ctm-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+      - ENV=localdev
+    environment:
+      - APP_NAME=
+      - APP_ENV=local
+      - APP_URL=dev.ctmtest.com
+      - DB_HOST=ctm-db
+      - DB_PORT=3306
+      - DB_DATABASE=ctm_test_db
+      - DB_USERNAME=test
+      - DB_PASSWORD=test
+    volumes:
+      - ./etc/bin:/var/www/bin
+      - ./etc/httpd/certs:/var/www/conf/httpd/certs
+      - ./source:/var/www/sites
+    ports:
+      - "8097:80"
+      - "443:443"
+
+  ctm-db:
+    image: mysql:5.7.24
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - ./database/conf:/etc/mysql:rw
+      - ./database/db_dumps:/docker-entrypoint-initdb.d:rw
+      - ./data/mysql:/var/lib/mysql
+    ports:
+      - "3310:3306"
+    environment:
+      MYSQL_DATABASE: "ctm_test_db"
+      MYSQL_USER: "test"
+      MYSQL_PASSWORD: "test"
+      MYSQL_ROOT_PASSWORD: "root"
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+
+networks:
+  default:
+    name: ctm-dev-network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.22.0.0/16

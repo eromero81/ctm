@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+set -e -o pipefail
+
+CERT_PATH=/var/www/conf/httpd/certs
+CERT_NAME=self-signed
+CERT_FILE=$CERT_PATH/$CERT_NAME
+CA_NAME=devCA
+CA_FILE=$CERT_PATH/$CA_NAME
+CA_PASS=S6S58B5KYV
+DOMAIN_NAME=dev-tracking.3stepdivorce.com
+
+mkdir -p ${CERT_PATH} && chmod 700 ${CERT_PATH}
+
+if [ -f "${CERT_FILE}.key" -a -f "${CERT_FILE}.crt" -a -f "${CA_FILE}.key" -a -f "${CA_FILE}.pem" ]; then
+    echo "Certs exists. skipping"
+    exit 0
+fi
+
+echo 'Becoming a (tiny) Certificate Authority'
+openssl genrsa -des3 -out $CA_FILE.key -passout pass:$CA_PASS 8192
+
+echo 'Then we generate a root certificate'
+openssl req -x509 -new -nodes -sha256 -days 825 \
+    -key $CA_FILE.key \
+    -out $CA_FILE.pem \
+    -passin pass:$CA_PASS \
+    -subj "/C=US/ST=CA/O=NOLO Inc./CN=NOLO Developer CA/emailAddress=noreply@rrsoft.co"
+
+echo 'Creating CA-Signed Certificates'
+openssl genrsa -out $CERT_FILE.key 8192
+openssl req -new \
+    -key $CERT_FILE.key \
+    -out $CERT_FILE.crt \
+    -subj "/C=US/ST=CA/O=NOLO Inc./CN=${DOMAIN_NAME}"
+openssl x509 -req \
+    -in $CERT_FILE.crt \
+    -CA $CA_FILE.pem \
+    -CAkey $CA_FILE.key \
+    -CAcreateserial \
+    -out $CERT_FILE.crt \
+    -days 825 -sha256 -extfile /var/www/conf/cert.ext \
+    -passin pass:$CA_PASS
